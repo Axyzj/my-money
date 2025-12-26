@@ -3,9 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>家庭云记账</title>
+    <title>随手记 Pro Max</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <script src="//code.bdstatic.com/npm/leancloud-storage@4.15.0/dist/av-min.js"></script>
     <style>
         body { 
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; 
@@ -15,74 +14,62 @@
         }
         .hide-scrollbar::-webkit-scrollbar { display: none; }
         .glass-header {
-            background: linear-gradient(135deg, #059669 0%, #10B981 100%); /* 换个绿色系代表云端安全 */
+            background: linear-gradient(135deg, #4F46E5 0%, #7C3AED 100%);
             padding-top: env(safe-area-inset-top);
         }
-        .stat-card { transition: transform 0.1s; cursor: pointer; }
+        .input-group { transition: all 0.2s; }
+        .input-group:focus-within { transform: scale(1.01); }
+        
+        /* 点击卡片的反馈效果 */
+        .stat-card { transition: transform 0.1s, background-color 0.2s; cursor: pointer; }
         .stat-card:active { transform: scale(0.95); background-color: rgba(255,255,255,0.2); }
-        
-        /* 加载动画 */
-        .spinner {
-            border: 3px solid rgba(255,255,255,0.3);
-            border-radius: 50%;
-            border-top: 3px solid #fff;
-            width: 20px;
-            height: 20px;
-            animation: spin 1s linear infinite;
-        }
-        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
-        
-        /* 遮罩层加载 */
-        #loading-overlay { display: none; }
-        #loading-overlay.active { display: flex; }
+
+        /* 弹窗动画 */
+        .modal-enter { transform: translateY(100%); opacity: 0; }
+        .modal-enter-active { transform: translateY(0); opacity: 1; transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); }
+        .modal-exit { transform: translateY(100%); opacity: 0; transition: all 0.2s ease-in; }
     </style>
 </head>
 <body>
-
-    <div id="loading-overlay" class="fixed inset-0 bg-black/30 z-[60] justify-center items-center backdrop-blur-sm">
-        <div class="bg-white p-4 rounded-xl flex items-center gap-3 shadow-xl">
-            <div class="spinner" style="border-top-color: #059669; border-color: #eee;"></div>
-            <span class="text-sm font-bold text-gray-600">数据同步中...</span>
-        </div>
-    </div>
 
     <div class="glass-header text-white pb-8 rounded-b-[30px] shadow-lg relative z-10">
         <div class="px-6 pt-6 pb-2">
             <div class="flex justify-between items-start">
                 <div>
-                    <p class="text-green-100 text-sm font-medium mb-1 flex items-center gap-1">
-                        ☁️ 家庭本月总支出
-                    </p>
+                    <p class="text-blue-100 text-sm font-medium mb-1">本月总支出</p>
                     <h1 class="text-4xl font-bold tracking-tight" id="stat-month">¥0.00</h1>
                 </div>
-                <button onclick="fetchData()" class="bg-white/20 hover:bg-white/30 backdrop-blur-md px-3 py-1.5 rounded-full text-xs font-medium transition flex items-center gap-1">
-                    🔄 刷新
+                <button onclick="exportData()" class="bg-white/20 hover:bg-white/30 backdrop-blur-md px-3 py-1.5 rounded-full text-xs font-medium transition">
+                    📤 备份
                 </button>
             </div>
             
             <div class="grid grid-cols-3 gap-3 mt-6">
-                <div onclick="showDetail('day')" class="stat-card bg-white/10 backdrop-blur-sm rounded-xl p-3 text-center">
-                    <p class="text-xs text-green-100 mb-1">今日</p>
+                <div onclick="showDetail('day')" class="stat-card bg-white/10 backdrop-blur-sm rounded-xl p-3 text-center relative overflow-hidden">
+                    <p class="text-xs text-blue-100 mb-1">今日</p>
                     <p class="font-bold text-sm" id="stat-day">¥0</p>
+                    <div class="absolute inset-0 bg-white/5 opacity-0 hover:opacity-100 transition"></div>
                 </div>
-                <div onclick="showDetail('week')" class="stat-card bg-white/10 backdrop-blur-sm rounded-xl p-3 text-center">
-                    <p class="text-xs text-green-100 mb-1">本周</p>
+                <div onclick="showDetail('week')" class="stat-card bg-white/10 backdrop-blur-sm rounded-xl p-3 text-center relative overflow-hidden">
+                    <p class="text-xs text-blue-100 mb-1">本周</p>
                     <p class="font-bold text-sm" id="stat-week">¥0</p>
+                    <div class="absolute inset-0 bg-white/5 opacity-0 hover:opacity-100 transition"></div>
                 </div>
-                <div onclick="showDetail('month')" class="stat-card bg-white/10 backdrop-blur-sm rounded-xl p-3 text-center">
-                    <p class="text-xs text-green-100 mb-1">本月</p>
+                <div onclick="showDetail('month')" class="stat-card bg-white/10 backdrop-blur-sm rounded-xl p-3 text-center relative overflow-hidden">
+                    <p class="text-xs text-blue-100 mb-1">本月</p>
                     <p class="font-bold text-sm" id="stat-month-small">¥0</p>
+                    <div class="absolute inset-0 bg-white/5 opacity-0 hover:opacity-100 transition"></div>
                 </div>
             </div>
         </div>
     </div>
 
     <div class="px-4 -mt-6 relative z-20">
-        <div class="bg-white rounded-2xl shadow-md p-4">
+        <div class="bg-white rounded-2xl shadow-md p-4 input-group">
             <h2 class="text-gray-400 text-xs font-bold uppercase mb-3 tracking-wider">记一笔</h2>
             <div class="flex gap-2 mb-3">
-                <input type="date" id="input-date" class="bg-gray-50 border-0 rounded-xl p-3 text-gray-700 font-medium text-sm flex-1 focus:ring-2 focus:ring-green-500 outline-none">
-                <select id="input-category" class="bg-gray-50 border-0 rounded-xl p-3 text-gray-700 font-medium text-sm w-1/3 focus:ring-2 focus:ring-green-500 outline-none appearance-none text-center">
+                <input type="date" id="input-date" class="bg-gray-50 border-0 rounded-xl p-3 text-gray-700 font-medium text-sm flex-1 focus:ring-2 focus:ring-indigo-500 outline-none">
+                <select id="input-category" class="bg-gray-50 border-0 rounded-xl p-3 text-gray-700 font-medium text-sm w-1/3 focus:ring-2 focus:ring-indigo-500 outline-none appearance-none text-center">
                     <option value="餐饮">🍔 餐饮</option>
                     <option value="交通">🚗 交通</option>
                     <option value="购物">🛍️ 购物</option>
@@ -95,9 +82,9 @@
             <div class="flex items-center gap-3">
                 <div class="relative flex-1">
                     <span class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 font-bold">¥</span>
-                    <input type="number" id="input-amount" step="0.01" placeholder="0.00" class="w-full bg-gray-50 border-0 rounded-xl pl-8 pr-3 py-3 text-xl font-bold text-gray-800 focus:ring-2 focus:ring-green-500 outline-none placeholder-gray-300">
+                    <input type="number" id="input-amount" step="0.01" placeholder="0.00" class="w-full bg-gray-50 border-0 rounded-xl pl-8 pr-3 py-3 text-xl font-bold text-gray-800 focus:ring-2 focus:ring-indigo-500 outline-none placeholder-gray-300">
                 </div>
-                <button onclick="addExpense()" class="bg-green-600 active:bg-green-700 text-white w-14 h-12 rounded-xl flex items-center justify-center shadow-lg shadow-green-200 transition-transform active:scale-95">
+                <button onclick="addExpense()" class="bg-indigo-600 active:bg-indigo-700 text-white w-14 h-12 rounded-xl flex items-center justify-center shadow-lg shadow-indigo-200 transition-transform active:scale-95">
                     <span class="text-2xl font-bold">+</span>
                 </button>
             </div>
@@ -106,43 +93,35 @@
 
     <div class="px-5 mt-6">
         <div class="flex justify-between items-end mb-4">
-            <h3 class="text-lg font-bold text-gray-800">云端同步列表</h3>
-            <span class="text-xs text-gray-400">只显示最近30条</span>
+            <h3 class="text-lg font-bold text-gray-800">近期账单</h3>
+            <button onclick="clearAll()" class="text-xs text-gray-400 py-1">清空</button>
         </div>
         <div id="expense-list" class="space-y-3 pb-safe"></div>
         <div id="empty-state" class="hidden text-center py-10">
-            <div class="text-4xl mb-2">☁️</div>
-            <p class="text-gray-400 text-sm">暂无云端数据，记一笔试试</p>
+            <div class="text-4xl mb-2">🍃</div>
+            <p class="text-gray-400 text-sm">暂无记录，开启记账生活吧</p>
         </div>
     </div>
 
     <div id="modal-backdrop" onclick="closeModal()" class="fixed inset-0 bg-black/40 backdrop-blur-sm z-40 hidden opacity-0 transition-opacity duration-300"></div>
     <div id="modal-content" class="fixed bottom-0 left-0 right-0 bg-white rounded-t-[2rem] p-6 z-50 modal-enter hidden h-[70vh] flex flex-col shadow-2xl">
         <div class="w-12 h-1.5 bg-gray-200 rounded-full mx-auto mb-6"></div>
+        
         <div class="flex justify-between items-baseline mb-4">
-            <h2 class="text-xl font-bold text-gray-800" id="modal-title">分析</h2>
-            <div class="text-2xl font-bold text-green-600" id="modal-total">¥0.00</div>
+            <h2 class="text-xl font-bold text-gray-800" id="modal-title">消费分析</h2>
+            <div class="text-2xl font-bold text-indigo-600" id="modal-total">¥0.00</div>
         </div>
-        <div id="modal-list" class="overflow-y-auto flex-1 space-y-4 pr-1"></div>
+
+        <div id="modal-list" class="overflow-y-auto flex-1 space-y-4 pr-1">
+            </div>
+
         <button onclick="closeModal()" class="mt-4 w-full bg-gray-100 text-gray-600 py-3 rounded-xl font-bold active:bg-gray-200">关闭</button>
     </div>
 
 <script>
-    // =======================================================
-    // ⚠️⚠️⚠️ 请先修改下面这三行配置！
-    // =======================================================
-    const APP_ID = '8u7WoVUdMfDaMusRu2mue6fS-gzGzoHsz';
-    const APP_KEY = 'UoaSDPu6WSoZsVw0t3F4km1o';
-    const SERVER_URL = 'https://8u7wovud.lc-cn-n1-shared.com'; 
-    // 例如: const SERVER_URL = 'https://u9xxxxx.api.lncldglobal.com';
-    // =======================================================
-
-    // 初始化 LeanCloud
-    AV.init({ appId: APP_ID, appKey: APP_KEY, serverURL: SERVER_URL });
-
-    let expenses = []; // 本地缓存数据
+    let expenses = JSON.parse(localStorage.getItem('myAccountBookPro')) || [];
     document.getElementById('input-date').valueAsDate = new Date();
-
+    
     const categoryColors = {
         '餐饮': 'bg-orange-100 text-orange-600',
         '交通': 'bg-blue-100 text-blue-600',
@@ -153,95 +132,173 @@
         '其他': 'bg-gray-100 text-gray-600'
     };
 
-    // 启动时拉取数据
-    fetchData();
+    const categoryBgColors = { 
+        '餐饮': 'bg-orange-500', '交通': 'bg-blue-500', '购物': 'bg-pink-500',
+        '娱乐': 'bg-purple-500', '居住': 'bg-green-500', '医疗': 'bg-red-500', '其他': 'bg-gray-500'
+    };
 
-    // --- 1. 云端同步核心函数 ---
-    
-    async function fetchData() {
-        showLoading(true);
-        try {
-            const query = new AV.Query('Expense');
-            query.descending('date'); // 按日期倒序
-            query.limit(100); // 获取最近100条用于统计
-            const results = await query.find();
-            
-            // 转换数据格式
-            expenses = results.map(item => ({
-                id: item.id, // LeanCloud 的唯一ID
-                date: item.get('date'),
-                amount: item.get('amount'),
-                category: item.get('category')
-            }));
+    render();
 
-            render();
-            console.log("云端数据同步成功", expenses.length);
-        } catch (error) {
-            alert('获取数据失败: ' + error.message);
-            console.error(error);
-        } finally {
-            showLoading(false);
-        }
-    }
+    // --- 核心逻辑 ---
 
-    async function addExpense() {
+    function addExpense() {
         const dateEl = document.getElementById('input-date');
         const amountEl = document.getElementById('input-amount');
         const catEl = document.getElementById('input-category');
 
         if (!dateEl.value || !amountEl.value) {
+            if(navigator.vibrate) navigator.vibrate(200);
             alert("⚠️ 请输入日期和金额");
             return;
         }
 
-        showLoading(true);
-        try {
-            // 保存到云端
-            const Expense = AV.Object.extend('Expense');
-            const expense = new Expense();
-            expense.set('date', dateEl.value);
-            expense.set('amount', parseFloat(amountEl.value));
-            expense.set('category', catEl.value);
-            
-            await expense.save(); // 等待上传完成
-            
-            // 上传成功后，刷新列表
-            await fetchData();
-            
-            amountEl.value = '';
-            amountEl.focus();
-        } catch (error) {
-            alert("保存失败，请检查网络");
-        } finally {
-            showLoading(false);
+        const newRecord = {
+            id: Date.now(),
+            date: dateEl.value,
+            amount: parseFloat(amountEl.value),
+            category: catEl.value
+        };
+
+        expenses.unshift(newRecord);
+        saveAndRender();
+        amountEl.value = '';
+        amountEl.focus(); 
+    }
+
+    function deleteItem(id) {
+        if(confirm("确定删除吗？")) {
+            expenses = expenses.filter(e => e.id !== id);
+            saveAndRender();
         }
     }
 
-    async function deleteItem(id) {
-        if(!confirm("确定从云端永久删除吗？")) return;
+    function saveAndRender() {
+        localStorage.setItem('myAccountBookPro', JSON.stringify(expenses));
+        render();
+    }
+
+    // --- 弹窗逻辑 (修改：支持 month 类型) ---
+
+    function showDetail(type) {
+        const now = new Date();
+        const todayStr = now.toISOString().split('T')[0];
+        const currentYear = now.getFullYear();
+        const currentMonthStr = now.toISOString().slice(0, 7); 
         
-        showLoading(true);
-        try {
-            const todo = AV.Object.createWithoutData('Expense', id);
-            await todo.destroy();
-            await fetchData(); // 刷新
-        } catch (error) {
-            alert("删除失败: " + error.message);
-        } finally {
-            showLoading(false);
+        // 周计算工具
+        const getWeekNumber = d => {
+            d = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
+            d.setUTCDate(d.getUTCDate() + 4 - (d.getUTCDay()||7));
+            var yearStart = new Date(Date.UTC(d.getUTCFullYear(),0,1));
+            return Math.ceil((((d - yearStart) / 86400000) + 1)/7);
+        };
+        const currentWeek = getWeekNumber(now);
+
+        // 1. 筛选数据
+        let filteredData = [];
+        let title = "";
+
+        if (type === 'day') {
+            title = "今日消费构成";
+            filteredData = expenses.filter(e => e.date === todayStr);
+        } else if (type === 'week') {
+            title = "本周消费构成";
+            filteredData = expenses.filter(e => {
+                const eDate = new Date(e.date);
+                return eDate.getFullYear() === currentYear && getWeekNumber(eDate) === currentWeek;
+            });
+        } else if (type === 'month') { // 修改处：添加本月筛选逻辑
+            title = "本月消费构成";
+            filteredData = expenses.filter(e => e.date.startsWith(currentMonthStr));
         }
+
+        // 2. 聚合数据 (按类别分组)
+        let categoryMap = {};
+        let totalAmount = 0;
+
+        filteredData.forEach(e => {
+            if (!categoryMap[e.category]) categoryMap[e.category] = 0;
+            categoryMap[e.category] += e.amount;
+            totalAmount += e.amount;
+        });
+
+        // 转换为数组并排序
+        let sortedCategories = Object.keys(categoryMap).map(key => {
+            return { name: key, value: categoryMap[key] };
+        }).sort((a, b) => b.value - a.value);
+
+        // 3. 渲染弹窗内容
+        document.getElementById('modal-title').innerText = title;
+        document.getElementById('modal-total').innerText = '¥' + formatMoney(totalAmount);
+        const listEl = document.getElementById('modal-list');
+        listEl.innerHTML = '';
+
+        if (sortedCategories.length === 0) {
+            listEl.innerHTML = '<div class="text-center text-gray-400 mt-10">暂无数据</div>';
+        } else {
+            sortedCategories.forEach(item => {
+                const percent = ((item.value / totalAmount) * 100).toFixed(1);
+                const barColor = categoryBgColors[item.name] || 'bg-gray-500';
+                const iconColor = categoryColors[item.name] || categoryColors['其他'];
+
+                const row = document.createElement('div');
+                row.className = 'mb-2';
+                row.innerHTML = `
+                    <div class="flex justify-between items-center mb-1">
+                        <div class="flex items-center gap-2">
+                            <span class="${iconColor} w-6 h-6 rounded flex items-center justify-center text-xs font-bold">
+                                ${item.name.substring(0,1)}
+                            </span>
+                            <span class="text-gray-700 font-medium">${item.name}</span>
+                        </div>
+                        <div class="text-right">
+                            <span class="font-bold text-gray-800">¥${formatMoney(item.value)}</span>
+                            <span class="text-xs text-gray-400 ml-1">${percent}%</span>
+                        </div>
+                    </div>
+                    <div class="w-full bg-gray-100 rounded-full h-2 overflow-hidden">
+                        <div class="${barColor} h-2 rounded-full" style="width: ${percent}%"></div>
+                    </div>
+                `;
+                listEl.appendChild(row);
+            });
+        }
+
+        // 4. 显示弹窗
+        const backdrop = document.getElementById('modal-backdrop');
+        const content = document.getElementById('modal-content');
+        
+        backdrop.classList.remove('hidden');
+        content.classList.remove('hidden');
+        
+        // 延时添加动画class以触发transition
+        setTimeout(() => {
+            backdrop.classList.remove('opacity-0');
+            content.classList.remove('modal-enter');
+            content.classList.add('modal-enter-active');
+        }, 10);
     }
 
-    // --- 辅助工具 ---
-    function showLoading(show) {
-        const el = document.getElementById('loading-overlay');
-        if(show) el.classList.add('active');
-        else el.classList.remove('active');
+    function closeModal() {
+        const backdrop = document.getElementById('modal-backdrop');
+        const content = document.getElementById('modal-content');
+
+        backdrop.classList.add('opacity-0');
+        content.classList.remove('modal-enter-active');
+        content.classList.add('modal-exit');
+
+        setTimeout(() => {
+            backdrop.classList.add('hidden');
+            content.classList.add('hidden');
+            content.classList.remove('modal-exit');
+            content.classList.add('modal-enter'); 
+        }, 300);
     }
 
-    // --- 渲染逻辑 (基本未变，只适配了数据结构) ---
+    // --- 渲染主页 ---
+
     function render() {
-        let d=0, w=0, m=0, totalMonth=0; // totalMonth用于小卡片
+        let d=0, w=0, m=0, y=0;
         const now = new Date();
         const todayStr = now.toISOString().split('T')[0];
         const currentMonthStr = now.toISOString().slice(0, 7); 
@@ -259,26 +316,28 @@
             const eDate = new Date(e.date);
             if(e.date === todayStr) d += e.amount;
             if(e.date.startsWith(currentMonthStr)) m += e.amount;
-            if(eDate.getFullYear() === currentYear && getWeekNumber(eDate) === currentWeek) w += e.amount;
+            if(eDate.getFullYear() === currentYear) {
+                y += e.amount;
+                if(getWeekNumber(eDate) === currentWeek) w += e.amount;
+            }
         });
 
         document.getElementById('stat-day').innerText = formatMoney(d);
         document.getElementById('stat-week').innerText = formatMoney(w);
+        // 大卡片更新
         document.getElementById('stat-month').innerText = formatMoney(m);
+        // 小卡片更新 (修改处：更新本月小卡片)
         document.getElementById('stat-month-small').innerText = formatMoney(m);
 
-        // 渲染列表 (只显示前 30 条避免页面过长)
         const listEl = document.getElementById('expense-list');
         const emptyEl = document.getElementById('empty-state');
         listEl.innerHTML = '';
-        
-        const displayList = expenses.slice(0, 30); // 只取前30条显示
 
-        if (displayList.length === 0) {
+        if (expenses.length === 0) {
             emptyEl.classList.remove('hidden');
         } else {
             emptyEl.classList.add('hidden');
-            displayList.forEach(item => {
+            expenses.forEach(item => {
                 const colorClass = categoryColors[item.category] || categoryColors['其他'];
                 const card = document.createElement('div');
                 card.className = 'bg-white p-3 rounded-xl shadow-sm flex items-center justify-between';
@@ -292,7 +351,7 @@
                             <div class="text-xs text-gray-400 mt-0.5">${item.date} · ${item.category}</div>
                         </div>
                     </div>
-                    <button onclick="deleteItem('${item.id}')" class="text-gray-300 hover:text-red-500 px-2 py-2">
+                    <button onclick="deleteItem(${item.id})" class="text-gray-300 hover:text-red-500 px-2 py-2">
                         ✕
                     </button>
                 `;
@@ -301,83 +360,26 @@
         }
     }
 
-    function formatMoney(num) { return num.toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }); }
-
-    // --- 弹窗逻辑 (适配云端数据) ---
-    function showDetail(type) {
-        // ... (这里的逻辑和之前一样，因为 expenses 已经是全局变量了，直接复用)
-        // 为了节省篇幅，这里复用之前的数据筛选逻辑，无需改动，
-        // 只要 expenses 数组里有数据，弹窗就能正常工作。
-        // ...
-        const now = new Date();
-        const todayStr = now.toISOString().split('T')[0];
-        const currentYear = now.getFullYear();
-        const currentMonthStr = now.toISOString().slice(0, 7); 
-        const getWeekNumber = d => {
-            d = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
-            d.setUTCDate(d.getUTCDate() + 4 - (d.getUTCDay()||7));
-            var yearStart = new Date(Date.UTC(d.getUTCFullYear(),0,1));
-            return Math.ceil((((d - yearStart) / 86400000) + 1)/7);
-        };
-        const currentWeek = getWeekNumber(now);
-
-        let filteredData = [];
-        let title = "";
-
-        if (type === 'day') {
-            title = "今日消费构成";
-            filteredData = expenses.filter(e => e.date === todayStr);
-        } else if (type === 'week') {
-            title = "本周消费构成";
-            filteredData = expenses.filter(e => {
-                const eDate = new Date(e.date);
-                return eDate.getFullYear() === currentYear && getWeekNumber(eDate) === currentWeek;
-            });
-        } else if (type === 'month') {
-            title = "本月消费构成";
-            filteredData = expenses.filter(e => e.date.startsWith(currentMonthStr));
-        }
-
-        let categoryMap = {};
-        let totalAmount = 0;
-        filteredData.forEach(e => {
-            if (!categoryMap[e.category]) categoryMap[e.category] = 0;
-            categoryMap[e.category] += e.amount;
-            totalAmount += e.amount;
-        });
-        let sortedCategories = Object.keys(categoryMap).map(key => ({ name: key, value: categoryMap[key] })).sort((a, b) => b.value - a.value);
-
-        document.getElementById('modal-title').innerText = title;
-        document.getElementById('modal-total').innerText = '¥' + formatMoney(totalAmount);
-        const listEl = document.getElementById('modal-list');
-        listEl.innerHTML = '';
-
-        if (sortedCategories.length === 0) {
-            listEl.innerHTML = '<div class="text-center text-gray-400 mt-10">暂无数据</div>';
-        } else {
-            const categoryBgColors = { '餐饮': 'bg-orange-500', '交通': 'bg-blue-500', '购物': 'bg-pink-500', '娱乐': 'bg-purple-500', '居住': 'bg-green-500', '医疗': 'bg-red-500', '其他': 'bg-gray-500' };
-            sortedCategories.forEach(item => {
-                const percent = ((item.value / totalAmount) * 100).toFixed(1);
-                const barColor = categoryBgColors[item.name] || 'bg-gray-500';
-                const row = document.createElement('div');
-                row.className = 'mb-2';
-                row.innerHTML = `<div class="flex justify-between items-center mb-1"><div class="flex items-center gap-2"><span class="text-gray-700 font-medium">${item.name}</span></div><div class="text-right"><span class="font-bold text-gray-800">¥${formatMoney(item.value)}</span><span class="text-xs text-gray-400 ml-1">${percent}%</span></div></div><div class="w-full bg-gray-100 rounded-full h-2 overflow-hidden"><div class="${barColor} h-2 rounded-full" style="width: ${percent}%"></div></div>`;
-                listEl.appendChild(row);
-            });
-        }
-        const backdrop = document.getElementById('modal-backdrop');
-        const content = document.getElementById('modal-content');
-        backdrop.classList.remove('hidden');
-        content.classList.remove('hidden');
-        setTimeout(() => { backdrop.classList.remove('opacity-0'); content.classList.remove('modal-enter'); content.classList.add('modal-enter-active'); }, 10);
+    function formatMoney(num) {
+        return num.toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
     }
-    function closeModal() {
-        const backdrop = document.getElementById('modal-backdrop');
-        const content = document.getElementById('modal-content');
-        backdrop.classList.add('opacity-0');
-        content.classList.remove('modal-enter-active');
-        content.classList.add('modal-exit');
-        setTimeout(() => { backdrop.classList.add('hidden'); content.classList.add('hidden'); content.classList.remove('modal-exit'); content.classList.add('modal-enter'); }, 300);
+
+    function clearAll() {
+        if(confirm("确定清空所有数据？")) {
+            expenses = [];
+            saveAndRender();
+        }
+    }
+
+    function exportData() {
+        const str = JSON.stringify(expenses);
+        const el = document.createElement('textarea');
+        el.value = str;
+        document.body.appendChild(el);
+        el.select();
+        document.execCommand('copy');
+        document.body.removeChild(el);
+        alert("数据已复制到剪贴板！请粘贴到备忘录保存。");
     }
 </script>
 </body>
